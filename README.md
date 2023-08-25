@@ -8,10 +8,9 @@ Turn your PDF files into a Podcast for easy listening!
 
 ## Description
 
-I used a vanilla web development stack including HTML, CSS, and JavaScript to create the front end. I utilized express to create a backend restful API, and render.com to host it.
+I employed a web development stack encompassing HTML, CSS, Bootstrap, and JavaScript to craft the frontend interface. The backend restful API was constructed using express, and for hosting, render.com was employed.
 
-In the future, I would like to add more natural voices to the project. Error checking is in place for invalid parameters.
-
+Looking ahead, an enhancement I'm considering involves incorporating additional natural voices into the project. To ensure robustness, comprehensive error-checking mechanisms have been implemented to handle invalid parameters effectively.
 
 ### Prerequisites
 
