@@ -4,7 +4,7 @@
 
 ## [CHECK IT OUT HERE!](https://jesusb25.github.io/PDF-to-MP3/)
 
-Turn your PDF files into an MP3 for easy listening
+Turn your PDF files into a Podcast for easy listening!
 
 ## Description
 
