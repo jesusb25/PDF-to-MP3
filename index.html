@@ -173,16 +173,16 @@
         </div>
 
         <button
-        class="navbar-toggler"
-        type="button"
-        data-bs-toggle="offcanvas"
-        data-bs-target="#offcanvas"
-        aria-controls="offcanvas"
-        aria-label="Toggle navigation"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#offcanvas"
+          aria-controls="offcanvas"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
         <div
           class="offcanvas offcanvas-end"
           tabindex="-1"
@@ -239,7 +239,9 @@
               placeholder="Leave a comment here"
               id="floatingTextarea"
             ></textarea>
-            <label for="floatingTextarea">PDF text will appeare here!</label>
+            <label id="textAreaLabel" for="floatingTextarea"
+              >PDF text will appear here!</label
+            >
           </div>
 
           <div
@@ -258,10 +260,21 @@
                 type="button"
                 id="mp3Convert"
               >
-              <div class="container d-flex justify-content-center loader-container">
-                <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
-              </div>
-              
+                <div
+                  class="container d-flex justify-content-center loader-container"
+                >
+                  <div class="lds-roller">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                  </div>
+                </div>
+
                 Download as MP3
               </button>
             </div>
@@ -269,7 +282,7 @@
         </div>
       </div>
     </main>
-    <footer class="container p-5>
+    <footer class="container p-5">
       <div class="row">
         <div class="col-12 col-md">
           <small class="d-block mb-3 text-body-secondary">&copy; 2023</small>
@@ -280,12 +293,12 @@
           <h5>About</h5>
           <ul class="list-unstyled text-small">
             <li>
-              <a class="link-secondary text-decoration-none" href="#">Mission</a>
+              <a class="link-secondary text-decoration-none" href="#"
+                >Mission</a
+              >
             </li>
             <li>
-              <a class="link-secondary text-decoration-none" href="#"
-                >Demo</a
-              >
+              <a class="link-secondary text-decoration-none" href="#">Demo</a>
             </li>
             <li>
               <a class="link-secondary text-decoration-none" href="#"

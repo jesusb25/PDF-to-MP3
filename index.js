@@ -84,6 +84,7 @@ const inputPDF = document.querySelector("#formFileLg");
 const resultText = document.querySelector("#floatingTextarea");
 const MAX_TEXT_LENGTH = 1000;
 const buttonConvert = document.querySelector("#mp3Convert");
+const textaAreaLabel = document.querySelector("#textAreaLabel");
 
 buttonConvert.addEventListener("click", convertTextToMp3);
 resultText.addEventListener("keyup", adjustTextAreaHeight);
@@ -121,6 +122,7 @@ function uploadPDF() {
     // Enable the convert button
     buttonConvert.disabled = false;
     buttonConvert.textContent = "Download as MP3";
+    textaAreaLabel.textContent = "";
   });
 }
 
