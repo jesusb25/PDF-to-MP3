@@ -122,7 +122,7 @@ function uploadPDF() {
     // Enable the convert button
     buttonConvert.disabled = false;
     buttonConvert.textContent = "Download as MP3";
-    textaAreaLabel.textContent = "";
+    textaAreaLabel.style.display = 'None';
   });
 }
 
