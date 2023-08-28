@@ -1,10 +1,12 @@
 # PDF to Podcast (MP3)
-![PDF Icon](https://github.com/jesusb25/PDF-to-MP3/blob/main/images/icons8-bookmark-64.png)
-
 
 ## [CHECK IT OUT HERE!](https://jesusb25.github.io/PDF-to-MP3/)
 
 Turn your PDF files into a Podcast for easy listening!
+
+## Demo
+
+https://github.com/jesusb25/PDF-to-MP3/assets/104487170/54a0ecac-15c7-4a62-b612-edd0d17d2bd8
 
 ## Description
 
