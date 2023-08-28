@@ -165,3 +165,11 @@
 .nav-link:hover {
   text-decoration: underline;
 }
+
+img {
+  box-shadow: 10px 10px 10px #00000080;
+  border-radius: 10px; /* Reduce border radius */
+  border-color: black;
+  border-style: solid;
+  overflow: hidden;
+}
