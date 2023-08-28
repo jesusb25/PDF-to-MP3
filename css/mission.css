@@ -166,7 +166,7 @@
   text-decoration: underline;
 }
 
-img {
+#listening-img {
   box-shadow: 10px 10px 10px #00000080;
   border-radius: 10px; /* Reduce border radius */
   border-color: black;

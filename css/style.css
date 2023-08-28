@@ -177,3 +177,7 @@
   min-width: 50px;
   min-height: 50px;
 }
+
+.nav-link:hover {
+  text-decoration: underline;
+}
