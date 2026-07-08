@@ -1,4 +1,4 @@
-# PDF to Podcast
+# Narrate
 
 Turn PDF documents into downloadable MP3 audio so you can listen to long-form reading on the go.
 
@@ -20,45 +20,49 @@ A local demo recording is also available at [assets/demo.mov](assets/demo.mov).
 
 ## Tech Stack
 
-- HTML, CSS, Bootstrap, and JavaScript for the frontend
+- React + Vite + Tailwind CSS for the frontend (in `web/`)
+- React Router for client-side routing (Home, Mission, Demo)
 - Express.js for the backend API
 - `pdfjs-dist` for PDF text extraction
 - `google-tts-api` for text-to-speech audio generation
 - Render for the hosted backend API
-- GitHub Pages for the hosted frontend
+- GitHub Pages (via GitHub Actions) for the hosted frontend
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18.16.0 or another compatible Node 18 release
+- Node.js 20 or newer
 - npm
 
-### Installation
+### Frontend (`web/`)
 
-Clone the repository:
+The user-facing app is a Vite + React project.
 
 ```sh
 git clone https://github.com/jesusb25/PDF-to-MP3.git
-cd PDF-to-MP3
-```
-
-Install dependencies:
-
-```sh
+cd PDF-to-MP3/web
 npm install
+npm run dev      # http://localhost:5173/PDF-to-MP3/
 ```
 
-Start the local server:
+Build a production bundle into `web/dist`:
 
 ```sh
-npm start
+npm run build
+npm run preview  # preview the built bundle locally
 ```
 
-The server serves the static app at:
+The frontend calls the hosted Render API by default (see `web/src/lib/convert.js`),
+so no local backend is required to try it.
 
-```text
-http://localhost:8000
+### Backend (`server/`)
+
+The Express API lives at the repo root and is deployed to Render.
+
+```sh
+npm install   # from the repo root
+npm start     # runs server/server.js via nodemon
 ```
 
 ## API Overview
@@ -74,15 +78,30 @@ The current frontend is configured to call the hosted Render API at `https://pdf
 
 ```text
 .
-|-- index.html          # Main app interface
-|-- index.js            # Frontend PDF upload and MP3 download logic
-|-- server/server.js    # Express API for PDF extraction and TTS conversion
-|-- demo.html           # Demo page
-|-- mission.html        # Project mission page
-|-- css/                # Page styles
-|-- images/             # UI assets
-`-- assets/demo.mov     # Demo recording
+|-- web/                     # React + Vite frontend
+|   |-- src/
+|   |   |-- App.jsx          # Router + layout
+|   |   |-- pages/           # Home (converter), Mission, Demo
+|   |   |-- components/      # Navbar, Footer, ThemeToggle
+|   |   |-- hooks/           # useTheme (light/dark/auto)
+|   |   `-- lib/convert.js   # PDF upload + MP3 conversion logic
+|   |-- public/              # Static assets (images, demo.mov, 404.html)
+|   `-- vite.config.js       # base: '/PDF-to-MP3/' for GitHub Pages
+|-- server/server.js         # Express API for PDF extraction and TTS
+`-- .github/workflows/       # GitHub Actions: build web/ and deploy to Pages
 ```
+
+## Deployment
+
+The frontend deploys automatically to GitHub Pages via
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml). On every push to
+`main`, the workflow installs dependencies in `web/`, runs `npm run build`, and
+publishes `web/dist`. Pages must be set to **Source: GitHub Actions**
+(Settings → Pages).
+
+Because the app is served from the `/PDF-to-MP3/` subpath, Vite's `base` is set
+accordingly and a `public/404.html` fallback restores deep links for client-side
+routing.
 
 ## Roadmap
 
