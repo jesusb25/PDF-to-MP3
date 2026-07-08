@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pdf-to-mp3
+    runtime: node
+    plan: free
+    # Install server deps, then build the React frontend into web/dist.
+    buildCommand: npm install && npm run build
+    # Serve the API + built frontend from a single Express process.
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20

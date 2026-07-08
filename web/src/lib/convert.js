@@ -1,4 +1,5 @@
-const API_BASE = 'https://pdf-to-mp3.onrender.com'
+// The Express server serves this frontend, so the API is same-origin.
+const API_BASE = ''
 const MAX_TEXT_LENGTH = 1000
 
 export function isPDF(filename) {

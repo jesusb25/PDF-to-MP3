@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const PORT = process.env.port || 8000;
+const PORT = process.env.PORT || 8000;
 const googleTTS = require('google-tts-api');
 const fileUpload = require('express-fileupload');
 const pdfjsLib = require('pdfjs-dist');
@@ -10,11 +10,13 @@ const app = express();
 app.use(cors());
 
 app.use(fileUpload());
-const directoryPath = path.dirname(__dirname);
-app.use(express.static(directoryPath));
+
+// Serve the built React frontend (web/dist) as the static site.
+const clientDir = path.join(__dirname, '..', 'web', 'dist');
+app.use(express.static(clientDir));
 
 app.listen(PORT, () => {
-  console.log('If local, static files are on http://localhost:8000');
+  console.log(`Listening on http://localhost:${PORT}`);
 });
 
 app.get('/base64data', (request, response) => {
@@ -72,5 +74,11 @@ async function getText(src) {
   const allText = allContent.flatMap(page => page.items.map(item => item.str));
   return allText.join(' ');
 }
+
+// SPA fallback: any non-API route serves index.html so React Router can
+// resolve client-side paths like /mission and /demo on a hard reload.
+app.get('*', (request, response) => {
+  response.sendFile(path.join(clientDir, 'index.html'));
+});
 
 

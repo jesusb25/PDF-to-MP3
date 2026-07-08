@@ -2,7 +2,7 @@
 
 Turn PDF documents into downloadable MP3 audio so you can listen to long-form reading on the go.
 
-[Open the live app](https://jesusb25.github.io/PDF-to-MP3/)
+[Open the live app](https://pdf-to-mp3.onrender.com/)
 
 ## Demo
 
@@ -25,8 +25,7 @@ A local demo recording is also available at [assets/demo.mov](assets/demo.mov).
 - Express.js for the backend API
 - `pdfjs-dist` for PDF text extraction
 - `google-tts-api` for text-to-speech audio generation
-- Render for the hosted backend API
-- GitHub Pages (via GitHub Actions) for the hosted frontend
+- Render for hosting (single service serving both the API and the built frontend)
 
 ## Getting Started
 
@@ -53,17 +52,21 @@ npm run build
 npm run preview  # preview the built bundle locally
 ```
 
-The frontend calls the hosted Render API by default (see `web/src/lib/convert.js`),
-so no local backend is required to try it.
+During development the Vite dev server runs the frontend; the backend must
+also be running (see below) since the frontend now calls a same-origin API.
 
 ### Backend (`server/`)
 
-The Express API lives at the repo root and is deployed to Render.
+The Express API lives at the repo root. In production it also serves the built
+frontend from `web/dist`, so the whole app runs as one process.
 
 ```sh
-npm install   # from the repo root
-npm start     # runs server/server.js via nodemon
+npm install         # from the repo root
+npm run build       # installs web deps and builds web/dist
+npm start           # serves API + frontend on http://localhost:8000
 ```
+
+For live-reload during development use `npm run dev` (nodemon).
 
 ## API Overview
 
@@ -72,7 +75,8 @@ The Express server exposes two main endpoints:
 - `POST /get-text`: accepts an uploaded PDF file and returns extracted text.
 - `GET /base64data?text=...`: converts text into base64-encoded MP3 audio data.
 
-The current frontend is configured to call the hosted Render API at `https://pdf-to-mp3.onrender.com`.
+The frontend calls these endpoints on the same origin that serves it, so no
+separate API host or CORS configuration is required in production.
 
 ## Project Structure
 
@@ -85,23 +89,26 @@ The current frontend is configured to call the hosted Render API at `https://pdf
 |   |   |-- components/      # Navbar, Footer, ThemeToggle
 |   |   |-- hooks/           # useTheme (light/dark/auto)
 |   |   `-- lib/convert.js   # PDF upload + MP3 conversion logic
-|   |-- public/              # Static assets (images, demo.mov, 404.html)
-|   `-- vite.config.js       # base: '/PDF-to-MP3/' for GitHub Pages
-|-- server/server.js         # Express API for PDF extraction and TTS
-`-- .github/workflows/       # GitHub Actions: build web/ and deploy to Pages
+|   |-- public/              # Static assets (images, demo.mov)
+|   `-- vite.config.js       # base: '/' — served from root by Express
+|-- server/server.js         # Express: PDF extraction, TTS, and static frontend
+`-- render.yaml              # Render single-service deploy config
 ```
 
 ## Deployment
 
-The frontend deploys automatically to GitHub Pages via
-[.github/workflows/deploy.yml](.github/workflows/deploy.yml). On every push to
-`main`, the workflow installs dependencies in `web/`, runs `npm run build`, and
-publishes `web/dist`. Pages must be set to **Source: GitHub Actions**
-(Settings → Pages).
+The entire app runs as a single Render web service defined in
+[render.yaml](render.yaml). On deploy, Render runs:
 
-Because the app is served from the `/PDF-to-MP3/` subpath, Vite's `base` is set
-accordingly and a `public/404.html` fallback restores deep links for client-side
-routing.
+- `npm install && npm run build` — installs server deps and builds the React
+  frontend into `web/dist`.
+- `npm start` — launches Express, which serves the API and the built frontend
+  from one process (Render provides the `PORT` env var).
+
+To set it up: on Render, create a **Blueprint** from this repo (it reads
+`render.yaml`), or a **Web Service** with build command `npm install && npm run
+build` and start command `npm start`. Client-side routes are handled by an
+Express SPA fallback that returns `index.html` for non-API paths.
 
 ## Roadmap
 
