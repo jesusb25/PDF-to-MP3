@@ -5,20 +5,37 @@ export function isPDF(filename) {
   return filename.split('.').pop().toLowerCase() === 'pdf'
 }
 
-/** Upload a PDF and get back its extracted, whitespace-normalized text. */
-export async function extractText(file) {
+/**
+ * Upload a PDF and get back its extracted, whitespace-normalized text.
+ * @param {File} file
+ * @param {(done:number,total:number)=>void} [onProgress] upload byte progress
+ */
+export function extractText(file, onProgress) {
   const formData = new FormData()
   formData.append('pdf', file)
 
-  const res = await fetch(`${API_BASE}/get-text`, {
-    method: 'POST',
-    body: formData,
+  // XHR (not fetch) so we can report real upload-byte progress, which is the
+  // slow part of extraction for large PDFs.
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${API_BASE}/get-text`)
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded, e.total)
+    })
+    xhr.addEventListener('load', () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(
+          new Error(`Could not extract text (server responded ${xhr.status}).`),
+        )
+        return
+      }
+      resolve(xhr.responseText.trim().replace(/\s{2,}/g, ' '))
+    })
+    xhr.addEventListener('error', () =>
+      reject(new Error('Could not extract text (network error).')),
+    )
+    xhr.send(formData)
   })
-  if (!res.ok) {
-    throw new Error(`Could not extract text (server responded ${res.status}).`)
-  }
-  const text = await res.text()
-  return text.trim().replace(/\s{2,}/g, ' ')
 }
 
 /** Split text on word boundaries so no chunk exceeds the TTS length limit. */
@@ -55,6 +72,9 @@ export async function textToMp3Base64(text, onProgress) {
   const chunks = splitTextIntoChunks(text)
   let done = 0
   const parts = []
+  // Report the total up front so the bar starts at a real 0% rather than
+  // an indeterminate pulse.
+  onProgress?.(0, chunks.length)
   // Sequential so progress is meaningful and we don't hammer the free tier.
   for (const chunk of chunks) {
     parts.push(await getBase64Data(chunk))

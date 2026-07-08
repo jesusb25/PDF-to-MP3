@@ -6,10 +6,10 @@ export default function Mission() {
       <div className="grid items-center gap-12 lg:grid-cols-2">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl dark:text-white">
-            Why PDF to Podcast?
+            Why Narrate?
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-            PDF to Podcast bridges my podcast enthusiasm with accessibility's
+            Narrate bridges my podcast enthusiasm with accessibility's
             impact. This project converts PDFs into captivating audio, serving
             both the visually impaired and multitaskers. Fueled by my love for
             podcasts, I set out to unite audio's allure with inclusive

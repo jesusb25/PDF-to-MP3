@@ -1,169 +1,222 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from "react";
+import { Zap, Pencil, Accessibility } from "lucide-react";
 import {
   isPDF,
   extractText,
   textToMp3Base64,
   downloadMp3,
-} from '../lib/convert.js'
+} from "../lib/convert.js";
 
 // Coarse UI states so the button/label always reflect what's happening.
-const IDLE = 'idle'
-const EXTRACTING = 'extracting'
-const READY = 'ready'
-const CONVERTING = 'converting'
+const IDLE = "idle";
+const EXTRACTING = "extracting";
+const READY = "ready";
+const CONVERTING = "converting";
+const DONE = "done";
+
+const VOICE = "Ava (US)";
 
 export default function Home() {
-  const [status, setStatus] = useState(IDLE)
-  const [text, setText] = useState('')
-  const [fileName, setFileName] = useState('')
-  const [error, setError] = useState('')
-  const [dragging, setDragging] = useState(false)
-  const [progress, setProgress] = useState({ done: 0, total: 0 })
-  const inputRef = useRef(null)
+  const [status, setStatus] = useState(IDLE);
+  const [text, setText] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileSize, setFileSize] = useState(0);
+  const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [audioUrl, setAudioUrl] = useState("");
+  const inputRef = useRef(null);
 
-  const busy = status === EXTRACTING || status === CONVERTING
+  const busy = status === EXTRACTING || status === CONVERTING;
 
   async function handleFile(file) {
-    setError('')
+    setError("");
     if (!file || !isPDF(file.name)) {
-      setError('Please choose a PDF file.')
-      return
+      setError("Please choose a PDF file.");
+      return;
     }
-    setFileName(file.name)
-    setStatus(EXTRACTING)
-    setText('')
+    setFileName(file.name);
+    setFileSize(file.size);
+    setStatus(EXTRACTING);
+    setText("");
+    setProgress({ done: 0, total: 0 });
     try {
-      const extracted = await extractText(file)
-      setText(extracted)
-      setStatus(READY)
+      const extracted = await extractText(file, (done, total) =>
+        setProgress({ done, total }),
+      );
+      setText(extracted);
+      setStatus(READY);
       if (!extracted) {
-        setError('No readable text was found in that PDF.')
+        setError("No readable text was found in that PDF.");
       }
     } catch (e) {
-      setStatus(IDLE)
-      setError(e.message || 'Something went wrong reading that PDF.')
+      setStatus(IDLE);
+      setError(e.message || "Something went wrong reading that PDF.");
     }
   }
 
   async function handleConvert() {
-    setError('')
+    setError("");
     if (!text.trim()) {
-      setError('There is no text to convert yet.')
-      return
+      setError("There is no text to convert yet.");
+      return;
     }
-    setStatus(CONVERTING)
-    setProgress({ done: 0, total: 0 })
+    setStatus(CONVERTING);
+    setProgress({ done: 0, total: 0 });
     try {
       const base64 = await textToMp3Base64(text, (done, total) =>
-        setProgress({ done, total })
-      )
-      downloadMp3(base64, fileName)
-      setStatus(READY)
+        setProgress({ done, total }),
+      );
+      setAudioUrl("data:audio/mpeg;base64," + base64);
+      setStatus(DONE);
     } catch (e) {
-      setStatus(READY)
-      setError(e.message || 'Conversion failed. Please try again.')
+      setStatus(READY);
+      setError(e.message || "Conversion failed. Please try again.");
     }
+  }
+
+  function handleDownload() {
+    downloadMp3(audioUrl.replace(/^data:audio\/mpeg;base64,/, ""), fileName);
+  }
+
+  function reset() {
+    setStatus(IDLE);
+    setText("");
+    setFileName("");
+    setFileSize(0);
+    setError("");
+    setProgress({ done: 0, total: 0 });
+    setAudioUrl("");
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   function onDrop(e) {
-    e.preventDefault()
-    setDragging(false)
-    if (busy) return
-    handleFile(e.dataTransfer.files?.[0])
+    e.preventDefault();
+    setDragging(false);
+    if (busy) return;
+    handleFile(e.dataTransfer.files?.[0]);
   }
 
   const pct =
-    progress.total > 0
-      ? Math.round((progress.done / progress.total) * 100)
-      : 0
+    progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <section className="relative overflow-hidden">
-      {/* Ambient gradient backdrop */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-brand/10 via-transparent to-transparent dark:from-brand/20"
-      />
-      <div className="relative mx-auto max-w-3xl px-4 py-16 sm:py-24">
-        <div className="text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-xs font-medium text-brand dark:text-brand-light">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-            Free · No sign-up
-          </span>
-          <h1 className="mt-5 bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl dark:from-white dark:to-slate-400">
-            PDF to Podcast
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600 dark:text-slate-300">
-            Drop in a PDF, review the text, and download it as an MP3 you can
-            listen to anywhere.
-          </p>
-        </div>
+    <section className="relative">
+      <div className="relative mx-auto max-w-3xl px-6 py-16 sm:py-24">
+        <h1 className="mt-10 text-5xl font-extrabold tracking-tight text-slate-900 sm:text-6xl dark:text-white">
+          Turn any PDF into audio.
+        </h1>
+        <p className="mt-4 max-w-xl text-lg text-slate-500 dark:text-slate-400">
+          Drop a document and get a clean MP3 you can listen to anywhere. No
+          account needed.
+        </p>
 
-        <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/5 sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-          {/* Dropzone */}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault()
-              if (!busy) setDragging(true)
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-            className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
-              dragging
-                ? 'border-brand bg-brand/5'
-                : 'border-slate-300 hover:border-brand hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50'
-            } ${busy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-          >
-            <svg
-              className="h-10 w-10 text-brand"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-            </svg>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              {fileName ? (
-                <>
-                  Selected: <span className="text-brand">{fileName}</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-brand">Click to upload</span> or drag &
-                  drop
-                </>
-              )}
-            </span>
-            <span className="text-xs text-slate-400">PDF files only</span>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              className="hidden"
-              onChange={(e) => handleFile(e.target.files?.[0])}
+        <div className="mt-10">
+          {status === DONE ? (
+            /* Result view: finished MP3 with player */
+            <ResultCard
+              src={audioUrl}
+              fileName={fileName}
+              voice={VOICE}
+              onDownload={handleDownload}
+              onReset={reset}
             />
-          </button>
-
-          {/* Status / error banner */}
-          {status === EXTRACTING && (
-            <StatusRow spinner>Extracting text from your PDF…</StatusRow>
+          ) : busy ? (
+            /* Processing view: file card + progress */
+            <>
+              <FileCard name={fileName} size={fileSize} />
+              <ProgressBar
+                label={
+                  status === EXTRACTING
+                    ? "Reading PDF…"
+                    : "Converting to audio…"
+                }
+                pct={pct}
+                indeterminate={progress.total === 0}
+              />
+            </>
+          ) : (
+            /* Dropzone */
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={`flex w-full cursor-pointer flex-col items-center justify-center gap-5 rounded-2xl border-2 border-dashed px-6 py-16 text-center transition ${
+                dragging
+                  ? "border-brand bg-brand/5"
+                  : "border-slate-300 bg-slate-50 hover:border-brand hover:bg-slate-100/70 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:bg-slate-800/50"
+              }`}
+            >
+              <span className="grid h-16 w-16 place-items-center rounded-2xl bg-brand/10 dark:bg-brand/20">
+                <svg
+                  className="h-7 w-7 text-brand"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 16V4m0 0L8 8m4-4 4 4"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+                  />
+                </svg>
+              </span>
+              <span className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {fileName ? (
+                  <>
+                    Selected: <span className="text-brand">{fileName}</span>
+                  </>
+                ) : (
+                  <>
+                    Drop a PDF here, or{" "}
+                    <span className="text-brand">browse</span>
+                  </>
+                )}
+              </span>
+              <span className="font-mono text-xs uppercase tracking-wider text-slate-400">
+                PDF up to 50 MB
+              </span>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+              />
+            </button>
           )}
+
+          {/* Error banner */}
           {error && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-              <svg className="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM9 9a1 1 0 0 1 2 0v4a1 1 0 1 1-2 0V9zm1-5a1.25 1.25 0 1 0 0 2.5A1.25 1.25 0 0 0 10 4z" clipRule="evenodd" />
+              <svg
+                className="mt-0.5 h-4 w-4 flex-shrink-0"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM9 9a1 1 0 0 1 2 0v4a1 1 0 1 1-2 0V9zm1-5a1.25 1.25 0 1 0 0 2.5A1.25 1.25 0 0 0 10 4z"
+                  clipRule="evenodd"
+                />
               </svg>
               {error}
             </div>
           )}
 
           {/* Editable extracted text */}
-          {(status === READY || status === CONVERTING) && text && (
+          {status === READY && text && (
             <div className="mt-6">
               <label
                 htmlFor="pdf-text"
@@ -184,38 +237,30 @@ export default function Home() {
             </div>
           )}
 
-          {/* Convert button + progress */}
-          {(status === READY || status === CONVERTING) && (
+          {/* Convert button */}
+          {status === READY && (
             <div className="mt-4">
               <button
                 type="button"
                 onClick={handleConvert}
-                disabled={busy || !text.trim()}
+                disabled={!text.trim()}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
-                {status === CONVERTING ? (
-                  <>
-                    <Spinner />
-                    Converting{progress.total ? ` ${pct}%` : '…'}
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0 4-4m-4 4-4-4M4 20h16" />
-                    </svg>
-                    Download as MP3
-                  </>
-                )}
-              </button>
-
-              {status === CONVERTING && progress.total > 0 && (
-                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-brand transition-all duration-300"
-                    style={{ width: `${pct}%` }}
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 4v12m0 0 4-4m-4 4-4-4M4 20h16"
                   />
-                </div>
-              )}
+                </svg>
+                Download as MP3
+              </button>
             </div>
           )}
         </div>
@@ -223,32 +268,240 @@ export default function Home() {
         <FeatureRow />
       </div>
     </section>
-  )
+  );
 }
 
-function StatusRow({ children, spinner }) {
+// Static bar heights (%) for the decorative waveform. Deterministic so the
+// layout doesn't jump between renders.
+const WAVE_BARS = [
+  42, 68, 55, 80, 48, 72, 60, 90, 52, 66, 44, 78, 58, 84, 50, 70, 62, 88, 46,
+  74, 56, 82, 64, 76, 54, 86, 48, 68, 60, 92, 52, 72, 58, 80, 50, 66, 62, 84,
+  46, 74,
+];
+
+function formatDuration(seconds) {
+  if (!seconds || !isFinite(seconds)) return "—";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function ResultCard({ src, fileName, voice, onDownload, onReset }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [current, setCurrent] = useState(0);
+
+  // Rough size estimate from the base64 payload (3 bytes per 4 chars).
+  const bytes = Math.floor((src.length - src.indexOf(",") - 1) * 0.75);
+  const displayName =
+    (fileName ? fileName.replace(/\.[^.]+$/, "") : "audio") + ".mp3";
+  const played = duration > 0 ? current / duration : 0;
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    const onMeta = () => setDuration(el.duration);
+    const onTime = () => setCurrent(el.currentTime);
+    const onEnd = () => setPlaying(false);
+    el.addEventListener("loadedmetadata", onMeta);
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("ended", onEnd);
+    return () => {
+      el.removeEventListener("loadedmetadata", onMeta);
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("ended", onEnd);
+    };
+  }, [src]);
+
+  function toggle() {
+    const el = audioRef.current;
+    if (!el) return;
+    if (el.paused) {
+      el.play();
+      setPlaying(true);
+    } else {
+      el.pause();
+      setPlaying(false);
+    }
+  }
+
+  function seek(e) {
+    const el = audioRef.current;
+    if (!el || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(
+      1,
+      Math.max(0, (e.clientX - rect.left) / rect.width),
+    );
+    el.currentTime = ratio * duration;
+    setCurrent(el.currentTime);
+  }
+
   return (
-    <div className="mt-4 flex items-center gap-2 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-brand dark:text-brand-light">
-      {spinner && <Spinner />}
-      {children}
+    <div>
+      <audio ref={audioRef} src={src} preload="metadata" />
+
+      {/* Ready badge */}
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0z"
+            clipRule="evenodd"
+          />
+        </svg>
+        Ready
+      </span>
+
+      {/* Filename + metadata */}
+      <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+        {displayName}
+      </h2>
+      <p className="mt-1 text-slate-400">
+        {formatDuration(duration)} · {formatBytes(bytes)} · {voice}
+      </p>
+
+      {/* Player: play button + waveform + time */}
+      <div className="mt-6 flex items-center gap-5">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={playing ? "Pause" : "Play"}
+          className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+        >
+          {playing ? (
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="5" width="4" height="14" rx="1" />
+              <rect x="14" y="5" width="4" height="14" rx="1" />
+            </svg>
+          ) : (
+            <svg
+              className="h-6 w-6 translate-x-0.5"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.28-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z" />
+            </svg>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={seek}
+          aria-label="Seek"
+          className="flex h-16 flex-1 items-center gap-1 overflow-hidden"
+        >
+          {WAVE_BARS.map((h, i) => {
+            const filled = i / WAVE_BARS.length <= played;
+            return (
+              <span
+                key={i}
+                style={{ height: `${h}%` }}
+                className={`w-1.5 flex-1 rounded-full transition-colors ${
+                  filled ? "bg-brand" : "bg-brand/30 dark:bg-brand/25"
+                }`}
+              />
+            );
+          })}
+        </button>
+
+        <span className="flex-shrink-0 font-mono text-sm tabular-nums text-slate-400">
+          {formatDuration(playing || current ? current : duration)}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={onDownload}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+        >
+          <svg
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4v12m0 0 4-4m-4 4-4-4M4 20h16"
+            />
+          </svg>
+          Download MP3
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-6 py-3.5 font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Convert another
+        </button>
+      </div>
     </div>
-  )
+  );
 }
 
-function Spinner() {
+function formatBytes(bytes) {
+  if (!bytes) return "";
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function FileCard({ name, size }) {
   return (
-    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
-    </svg>
-  )
+    <div className="flex items-center gap-4 rounded-2xl border border-slate-200 px-5 py-4 dark:border-slate-800">
+      <span className="grid h-14 w-12 flex-shrink-0 place-items-center rounded-xl bg-brand/10 text-xs font-bold tracking-wide text-brand dark:bg-brand/20">
+        PDF
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {name || "document.pdf"}
+        </p>
+        {size > 0 && (
+          <p className="mt-0.5 text-sm text-slate-400">{formatBytes(size)}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ label, pct, indeterminate }) {
+  return (
+    <div className="mt-8">
+      <div className="flex items-baseline justify-between">
+        <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          {label}
+        </span>
+        {!indeterminate && (
+          <span className="text-lg font-bold text-brand">{pct}%</span>
+        )}
+      </div>
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+        <div
+          className={`h-full rounded-full bg-brand transition-all duration-300 ${
+            indeterminate ? "animate-pulse w-2/5" : ""
+          }`}
+          style={indeterminate ? undefined : { width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 const FEATURES = [
-  { icon: '⚡', title: 'Fast', body: 'Text extraction and audio in seconds.' },
-  { icon: '✏️', title: 'Editable', body: 'Fix the text before you convert.' },
-  { icon: '♿', title: 'Accessible', body: 'Built for listening on the go.' },
-]
+  { icon: Zap, title: "Fast", body: "Text extraction and audio in seconds." },
+  { icon: Pencil, title: "Editable", body: "Fix the text before you convert." },
+  {
+    icon: Accessibility,
+    title: "Accessible",
+    body: "Built for listening on the go.",
+  },
+];
 
 function FeatureRow() {
   return (
@@ -258,7 +511,7 @@ function FeatureRow() {
           key={f.title}
           className="rounded-xl border border-slate-200 bg-white/60 p-4 dark:border-slate-800 dark:bg-slate-900/60"
         >
-          <div className="text-2xl">{f.icon}</div>
+          <f.icon className="h-7 w-7 text-brand" strokeWidth={1.8} />
           <div className="mt-2 font-semibold text-slate-900 dark:text-slate-100">
             {f.title}
           </div>
@@ -268,5 +521,5 @@ function FeatureRow() {
         </div>
       ))}
     </div>
-  )
+  );
 }

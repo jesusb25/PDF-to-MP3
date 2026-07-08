@@ -6,9 +6,9 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#712cf9',
-          light: '#8b5cff',
-          dark: '#5a23c8',
+          DEFAULT: '#0ea5e9',
+          light: '#38bdf8',
+          dark: '#0284c7',
         },
       },
       fontFamily: {
@@ -20,6 +20,14 @@ export default {
           'Helvetica Neue',
           'Arial',
           'sans-serif',
+        ],
+        mono: [
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          'Consolas',
+          'monospace',
         ],
       },
     },
