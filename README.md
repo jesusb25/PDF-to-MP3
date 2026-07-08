@@ -1,48 +1,97 @@
-# PDF to Podcast (MP3)
-## [CHECK IT OUT HERE!](https://jesusb25.github.io/PDF-to-MP3/)
+# PDF to Podcast
 
-Turn your PDF files into a Podcast for easy listening!
+Turn PDF documents into downloadable MP3 audio so you can listen to long-form reading on the go.
+
+[Open the live app](https://jesusb25.github.io/PDF-to-MP3/)
 
 ## Demo
 
 https://github.com/jesusb25/PDF-to-MP3/assets/104487170/54a0ecac-15c7-4a62-b612-edd0d17d2bd8
 
-## Description
+A local demo recording is also available at [assets/demo.mov](assets/demo.mov).
 
-I employed a web development stack encompassing HTML, CSS, Bootstrap, and JavaScript to craft the frontend interface. The backend restful API was constructed using express, and for hosting, render.com was employed.
+## Features
 
-Looking ahead, an enhancement I'm considering involves incorporating additional natural voices into the project. To ensure robustness, comprehensive error-checking mechanisms have been implemented to handle invalid parameters effectively.
+- Upload a PDF and extract its text in the browser workflow.
+- Review and edit the extracted text before conversion.
+- Convert text into MP3 audio with Google Text-to-Speech.
+- Download the generated audio file.
+- Switch between light, dark, and system color modes.
 
-### Prerequisites
+## Tech Stack
 
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-Best for Node Version 18 
+- HTML, CSS, Bootstrap, and JavaScript for the frontend
+- Express.js for the backend API
+- `pdfjs-dist` for PDF text extraction
+- `google-tts-api` for text-to-speech audio generation
+- Render for the hosted backend API
+- GitHub Pages for the hosted frontend
 
 ## Getting Started
 
-1. Clone the repo
-   ```sh
-   git clone https://github.com/jesusb25/PDF-to-MP3.git
-   ```
-2. Install NPM packages
-   ```sh
-   npm install
-   ```
-3. Start local server
-   ```sh
-   npm start
-   ```
-This will still make calls to external API but the server functions can be found in server.js
+### Prerequisites
 
-### Dependencies
+- Node.js 18.16.0 or another compatible Node 18 release
+- npm
 
-Requires Node version 18
+### Installation
 
-## Authors
+Clone the repository:
 
-Jesus Ballesteros
+```sh
+git clone https://github.com/jesusb25/PDF-to-MP3.git
+cd PDF-to-MP3
+```
+
+Install dependencies:
+
+```sh
+npm install
+```
+
+Start the local server:
+
+```sh
+npm start
+```
+
+The server serves the static app at:
+
+```text
+http://localhost:8000
+```
+
+## API Overview
+
+The Express server exposes two main endpoints:
+
+- `POST /get-text`: accepts an uploaded PDF file and returns extracted text.
+- `GET /base64data?text=...`: converts text into base64-encoded MP3 audio data.
+
+The current frontend is configured to call the hosted Render API at `https://pdf-to-mp3.onrender.com`.
+
+## Project Structure
+
+```text
+.
+|-- index.html          # Main app interface
+|-- index.js            # Frontend PDF upload and MP3 download logic
+|-- server/server.js    # Express API for PDF extraction and TTS conversion
+|-- demo.html           # Demo page
+|-- mission.html        # Project mission page
+|-- css/                # Page styles
+|-- images/             # UI assets
+`-- assets/demo.mov     # Demo recording
+```
+
+## Roadmap
+
+- Add more natural-sounding voice options.
+- Improve PDF validation and conversion error messages.
+- Add support for additional languages and voice settings.
+
+## Author
+
+Built by Jesus Ballesteros.
+
 [LinkedIn](https://www.linkedin.com/in/ballesterosjesus/)
