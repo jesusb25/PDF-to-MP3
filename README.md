@@ -4,12 +4,6 @@ Turn PDF documents into downloadable MP3 audio so you can listen to long-form re
 
 ### [Open the live app](https://jesusb25.github.io/PDF-to-MP3/)
 
-## Demo
-
-https://github.com/jesusb25/PDF-to-MP3/assets/104487170/54a0ecac-15c7-4a62-b612-edd0d17d2bd8
-
-A local demo recording is also available at [assets/demo.mov](assets/demo.mov).
-
 ## Features
 
 - Upload a PDF and extract its text in the browser workflow.
