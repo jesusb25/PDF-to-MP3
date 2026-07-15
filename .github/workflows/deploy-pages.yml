@@ -25,7 +25,7 @@ jobs:
       # App is served from the repo subpath on Pages, and its API lives on
       # Render (different origin). These feed vite.config.js and convert.js.
       VITE_BASE: /PDF-to-MP3/
-      VITE_API_BASE: https://pdf-to-mp3.onrender.com
+      VITE_API_BASE: https://pdf-to-mp3-8hym.onrender.com
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
