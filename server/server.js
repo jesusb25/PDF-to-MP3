@@ -23,11 +23,18 @@ const app = express();
 // the Vite dev server runs on :5173 and proxies API calls here, forwarding its
 // own Origin header, so allow it when not in production.
 const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+// Render injects the service's public URL as RENDER_EXTERNAL_URL; always allow
+// it so same-origin asset/API requests aren't rejected when the service name
+// (and thus the URL) differs from the hardcoded fallback.
+const RENDER_ORIGIN = process.env.RENDER_EXTERNAL_URL
+  ? new URL(process.env.RENDER_EXTERNAL_URL).origin
+  : null;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ||
-  'https://pdf-to-mp3.onrender.com,https://jesusb25.github.io')
+  'https://pdf-to-mp3-8hym.onrender.com,https://jesusb25.github.io')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean)
+  .concat(RENDER_ORIGIN ? [RENDER_ORIGIN] : [])
   .concat(process.env.NODE_ENV === 'production' ? [] : DEV_ORIGINS);
 
 app.use(cors({
@@ -37,7 +44,11 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+    // Reject by omitting CORS headers rather than throwing. Throwing here
+    // propagates to Express's default error handler and turns every request
+    // from a non-allowlisted origin into an opaque 500 (including static
+    // assets); returning false just withholds the CORS headers.
+    return callback(null, false);
   },
 }));
 
@@ -189,5 +200,23 @@ async function getText(data, startPage, endPage) {
 // SPA fallback: any non-API route serves index.html so React Router can
 // resolve client-side paths like /mission and /demo on a hard reload.
 app.get('*', (request, response) => {
-  response.sendFile(path.join(clientDir, 'index.html'));
+  // A request for a hashed build asset (e.g. /assets/index-abc123.js) that
+  // reached this fallback means express.static could not find it — the client
+  // is holding a stale index.html that references old filenames. Returning
+  // index.html here would serve HTML with a .js content-type; instead 404 so
+  // the browser hard-reloads and picks up the current asset names.
+  if (request.path.startsWith('/assets/')) {
+    response.status(404).send('Asset not found.');
+    return;
+  }
+
+  // Provide an error callback so a failed sendFile (missing/locked file,
+  // ENOENT if the build output is absent) is handled explicitly instead of
+  // bubbling to Express's default handler as an opaque 500.
+  response.sendFile(path.join(clientDir, 'index.html'), (err) => {
+    if (err && !response.headersSent) {
+      console.error('SPA fallback sendFile error:', err.message);
+      response.status(500).send('Application is unavailable. Please try again shortly.');
+    }
+  });
 });
