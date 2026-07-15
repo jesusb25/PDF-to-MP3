@@ -24,7 +24,7 @@ const app = express();
 // own Origin header, so allow it when not in production.
 const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ||
-  'https://pdf-to-mp3.onrender.com')
+  'https://pdf-to-mp3.onrender.com,https://jesusb25.github.io')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean)
@@ -50,10 +50,13 @@ app.use(fileUpload({
   responseOnLimit: 'File is too large. Maximum size is 10 MB.',
 }));
 
-// Basic rate limiting to prevent abuse of the public endpoints.
+// Basic rate limiting to prevent abuse of the public endpoints. A long document
+// fans out into one /base64data request per ~1800-char chunk, so the cap has to
+// clear a short book (~300 chunks) while still bounding abuse. standardHeaders
+// sends RateLimit-*/Retry-After so the client can back off (see convert.js).
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests, please try again later.',

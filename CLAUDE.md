@@ -35,10 +35,6 @@ Single deployable: one Express process serves both the JSON API and the built Re
 
 **Frontend** (`web/src/`): React + Vite + Tailwind. `App.jsx` is router + layout; `pages/Home.jsx` is the converter UI; `hooks/useTheme.js` drives light/dark/system theming. `vite.config.js` uses `base: '/'` because Express serves it from root.
 
-## Important: stale/legacy files
-
-The repo root contains **legacy artifacts from a pre-React version** that are NOT part of the live app: `index.js`, and the `css/`, `images/`, `assets/` directories. `AGENTS.md` is **outdated** — it describes a Bootstrap/HTML frontend (`index.html`, `demo.html`, `mission.html`) that no longer exists. The active frontend is entirely in `web/`. Ignore `AGENTS.md`'s file references and do not edit the legacy root files when working on the app.
-
 ## Deployment
 
 Single Render web service (`render.yaml`): build `npm install && npm run build`, start `npm start`. Render provides `PORT`. Because build runs from root, `npm run build` must install and build `web/` too (it does, via `--prefix web`).

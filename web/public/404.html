@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PDF to MP3</title>
+    <script>
+      // GitHub Pages SPA redirect. Pages has no server-side routing, so a hard
+      // reload of a deep link (e.g. /PDF-to-MP3/mission) hits this 404 page.
+      // Encode the requested path into a query string and bounce to the app
+      // root; index.html decodes it and hands it to React Router.
+      // pathSegmentsToKeep = 1 keeps the repo-name base path (/PDF-to-MP3/).
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -2,7 +2,7 @@
   "name": "PDF-to-MP3",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server/server.js",
   "scripts": {
     "build": "npm install --prefix web && npm run build --prefix web",
     "start": "node server/server.js",

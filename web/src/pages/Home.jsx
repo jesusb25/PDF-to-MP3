@@ -33,10 +33,6 @@ export default function Home() {
   const [lang, setLang] = useState("en");
   const [slow, setSlow] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [numPages, setNumPages] = useState(0);
-  const [startPage, setStartPage] = useState("");
-  const [endPage, setEndPage] = useState("");
-  const [lastFile, setLastFile] = useState(null);
   const inputRef = useRef(null);
 
   const busy = status === EXTRACTING || status === CONVERTING;
@@ -50,59 +46,21 @@ export default function Home() {
     }
     setFileName(file.name);
     setFileSize(file.size);
-    setLastFile(file);
-    // A fresh file resets any prior page-range selection.
-    setStartPage("");
-    setEndPage("");
-    setNumPages(0);
     setStatus(EXTRACTING);
     setText("");
     setProgress({ done: 0, total: 0 });
     try {
-      const { text: extracted, numPages: pages } = await extractText(
+      const { text: extracted } = await extractText(
         file,
         (done, total) => setProgress({ done, total }),
       );
       setText(extracted);
-      setNumPages(pages);
       setStatus(READY);
       if (!extracted) {
         setError("No readable text was found in that PDF.");
       }
     } catch (e) {
       setStatus(IDLE);
-      setError(e.message || "Something went wrong reading that PDF.");
-    }
-  }
-
-  // Re-extract the current PDF for the chosen page range without re-selecting
-  // the file. Bounds are validated here; the server also clamps defensively.
-  async function reExtract() {
-    if (!lastFile) return;
-    const from = startPage ? parseInt(startPage, 10) : undefined;
-    const to = endPage ? parseInt(endPage, 10) : undefined;
-    if (from && to && from > to) {
-      setError("Start page can't be after end page.");
-      return;
-    }
-    setError("");
-    setStatus(EXTRACTING);
-    setText("");
-    setProgress({ done: 0, total: 0 });
-    try {
-      const { text: extracted, numPages: pages } = await extractText(
-        lastFile,
-        (done, total) => setProgress({ done, total }),
-        { startPage: from, endPage: to },
-      );
-      setText(extracted);
-      setNumPages(pages);
-      setStatus(READY);
-      if (!extracted) {
-        setError("No readable text was found in those pages.");
-      }
-    } catch (e) {
-      setStatus(READY);
       setError(e.message || "Something went wrong reading that PDF.");
     }
   }
@@ -149,10 +107,6 @@ export default function Home() {
     setError("");
     setProgress({ done: 0, total: 0 });
     setAudioUrl("");
-    setNumPages(0);
-    setStartPage("");
-    setEndPage("");
-    setLastFile(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -363,46 +317,6 @@ export default function Home() {
                 {estimateConversion(text, slow).chunks === 1 ? "" : "s"}
               </span>
               <span>{text.length.toLocaleString()} characters</span>
-            </div>
-          )}
-
-          {/* Page-range selector (PDF mode, multi-page docs) */}
-          {status === READY && mode === "pdf" && numPages > 1 && (
-            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
-              <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                Pages{" "}
-                <span className="font-normal text-slate-400">
-                  (of {numPages} — leave blank for all)
-                </span>
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={numPages}
-                  value={startPage}
-                  onChange={(e) => setStartPage(e.target.value)}
-                  placeholder="1"
-                  className="w-20 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-                <span className="text-slate-400">to</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={numPages}
-                  value={endPage}
-                  onChange={(e) => setEndPage(e.target.value)}
-                  placeholder={String(numPages)}
-                  className="w-20 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-                <button
-                  type="button"
-                  onClick={reExtract}
-                  className="ml-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Apply
-                </button>
-              </div>
             </div>
           )}
 

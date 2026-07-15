@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Served from the root by the Express server on Render.
+// `base` differs by target: the Express server on Render serves the app from
+// the root ('/'), but GitHub Pages serves it from a repo subpath
+// ('/PDF-to-MP3/'). Set VITE_BASE at build time for Pages; defaults to '/'.
 export default defineConfig({
   plugins: [react()],
-  base: '/',
+  base: process.env.VITE_BASE || '/',
   // @ffmpeg/ffmpeg ships its own bundled web worker; Vite's dep optimizer
   // rewrites the worker reference and then can't find it ("The file does not
   // exist at .../deps/worker.js?worker_file"). Excluding the ffmpeg packages

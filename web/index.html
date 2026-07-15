@@ -7,6 +7,24 @@
     <title>Narrate — Turn any PDF into audio</title>
     <meta name="description" content="TEST" />
     <meta name="theme-color" content="#0ea5e9" />
+    <script>
+      // GitHub Pages SPA redirect decoder — pairs with public/404.html. When a
+      // deep link bounces here as "/?/path", rewrite it back to a real path in
+      // history so React Router sees the intended route. No-op when served
+      // normally (Render, or a direct hit on the app root).
+      (function () {
+        var l = window.location;
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) { return s.replace(/~and~/g, '&'); })
+            .join('?');
+          window.history.replaceState(null, null,
+            l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

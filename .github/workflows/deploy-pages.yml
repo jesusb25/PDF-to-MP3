@@ -1,0 +1,51 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  # Deploy on every push to main.
+  push:
+    branches: [main]
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch:
+
+# Permissions the deploy-pages action needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; don't cancel an in-progress one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # App is served from the repo subpath on Pages, and its API lives on
+      # Render (different origin). These feed vite.config.js and convert.js.
+      VITE_BASE: /PDF-to-MP3/
+      VITE_API_BASE: https://pdf-to-mp3.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install and build web
+        working-directory: web
+        run: |
+          npm install
+          npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

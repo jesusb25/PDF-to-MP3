@@ -1,6 +1,12 @@
-// The Express server serves this frontend, so the API is same-origin.
-const API_BASE = ''
-const MAX_TEXT_LENGTH = 1000
+// On Render the Express server serves this frontend, so the API is same-origin
+// (API_BASE = ''). On GitHub Pages the frontend and API live on different
+// origins, so set VITE_API_BASE to the absolute API URL at build time.
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+// Per-chunk char limit. The server caps a single /base64data request at 2000
+// chars; staying just under that halves the number of sequential requests a
+// long document needs (each chunk = one round-trip), which matters most for
+// books. Google TTS still segments internally, so quality is unaffected.
+const MAX_TEXT_LENGTH = 1800
 
 // Languages the server allowlists for TTS. `code` is passed to /base64data;
 // `voice` is the label shown in the result card.
@@ -112,14 +118,49 @@ export function estimateConversion(text, slow = false) {
   return { chunks, words, seconds }
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Long documents fan out into hundreds of sequential requests and can trip the
+// server's rate limit (429) or a transient upstream failure (502). Without this
+// a single throttled request would fail the whole conversion, so retry those
+// with exponential backoff, honoring Retry-After when the server sends it.
+const MAX_RETRIES = 5
+const BASE_BACKOFF_MS = 1000
+
 async function getBase64Data(text, { lang, slow } = {}) {
   let url = `${API_BASE}/base64data?text=${encodeURIComponent(text)}`
   if (lang) url += `&lang=${encodeURIComponent(lang)}`
   if (slow) url += `&slow=1`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('Network response was not ok.')
-  return res.text()
+
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url)
+    if (res.ok) return res.text()
+
+    // Retry only on throttling/transient upstream errors; other statuses
+    // (e.g. 400/413) won't succeed on retry, so fail fast.
+    const retryable = res.status === 429 || res.status === 502 || res.status === 503
+    if (!retryable || attempt >= MAX_RETRIES) {
+      throw new Error(
+        res.status === 429
+          ? 'Too many requests — the free service is rate-limited. Try a smaller document or wait a bit.'
+          : 'Network response was not ok.',
+      )
+    }
+
+    // Prefer the server's Retry-After (seconds); otherwise exponential backoff.
+    const retryAfter = Number(res.headers.get('retry-after'))
+    const wait = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : BASE_BACKOFF_MS * 2 ** attempt
+    await sleep(wait)
+  }
 }
+
+// How many TTS requests are in flight at once. A long document is hundreds of
+// chunks; running them one-at-a-time makes a book take minutes. A small pool
+// cuts that to well under a minute while staying gentle enough that the
+// per-request 429 backoff (getBase64Data) can absorb the occasional throttle.
+const TTS_CONCURRENCY = 5
 
 /**
  * Convert text to a single base64 MP3 payload.
@@ -129,17 +170,31 @@ async function getBase64Data(text, { lang, slow } = {}) {
  */
 export async function textToMp3Base64(text, onProgress, opts = {}) {
   const chunks = splitTextIntoChunks(text)
+  // Results are written into indexed slots (not push-order) so the joined MP3
+  // preserves chunk order even though requests finish out of order.
+  const parts = new Array(chunks.length)
   let done = 0
-  const parts = []
+  let next = 0
   // Report the total up front so the bar starts at a real 0% rather than
   // an indeterminate pulse.
   onProgress?.(0, chunks.length)
-  // Sequential so progress is meaningful and we don't hammer the free tier.
-  for (const chunk of chunks) {
-    parts.push(await getBase64Data(chunk, opts))
-    done += 1
-    onProgress?.(done, chunks.length)
+
+  // Each worker pulls the next unclaimed chunk index until the queue drains.
+  // Bounded concurrency (TTS_CONCURRENCY workers) instead of one-at-a-time.
+  async function worker() {
+    while (next < chunks.length) {
+      const i = next++
+      parts[i] = await getBase64Data(chunks[i], opts)
+      done += 1
+      onProgress?.(done, chunks.length)
+    }
   }
+
+  const workers = Array.from(
+    { length: Math.min(TTS_CONCURRENCY, chunks.length) },
+    worker,
+  )
+  await Promise.all(workers)
   return parts.join('')
 }
 
