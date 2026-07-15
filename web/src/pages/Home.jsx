@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Zap, Pencil, Accessibility } from "lucide-react";
 import {
   isPDF,
   extractText,
   textToMp3Base64,
   downloadMp3,
+  changeSpeed,
+  estimateConversion,
+  LANGUAGES,
 } from "../lib/convert.js";
 
 // Coarse UI states so the button/label always reflect what's happening.
@@ -14,7 +16,9 @@ const READY = "ready";
 const CONVERTING = "converting";
 const DONE = "done";
 
-const VOICE = "Ava (US)";
+// Download speed presets. atempo handles 0.5–2.0 in one pass (pitch preserved),
+// so every value here is a single-filter re-encode.
+const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export default function Home() {
   const [status, setStatus] = useState(IDLE);
@@ -25,9 +29,18 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [audioUrl, setAudioUrl] = useState("");
+  const [mode, setMode] = useState("pdf"); // "pdf" | "paste"
+  const [lang, setLang] = useState("en");
+  const [slow, setSlow] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [numPages, setNumPages] = useState(0);
+  const [startPage, setStartPage] = useState("");
+  const [endPage, setEndPage] = useState("");
+  const [lastFile, setLastFile] = useState(null);
   const inputRef = useRef(null);
 
   const busy = status === EXTRACTING || status === CONVERTING;
+  const voice = LANGUAGES.find((l) => l.code === lang)?.voice || "Ava (US)";
 
   async function handleFile(file) {
     setError("");
@@ -37,20 +50,59 @@ export default function Home() {
     }
     setFileName(file.name);
     setFileSize(file.size);
+    setLastFile(file);
+    // A fresh file resets any prior page-range selection.
+    setStartPage("");
+    setEndPage("");
+    setNumPages(0);
     setStatus(EXTRACTING);
     setText("");
     setProgress({ done: 0, total: 0 });
     try {
-      const extracted = await extractText(file, (done, total) =>
-        setProgress({ done, total }),
+      const { text: extracted, numPages: pages } = await extractText(
+        file,
+        (done, total) => setProgress({ done, total }),
       );
       setText(extracted);
+      setNumPages(pages);
       setStatus(READY);
       if (!extracted) {
         setError("No readable text was found in that PDF.");
       }
     } catch (e) {
       setStatus(IDLE);
+      setError(e.message || "Something went wrong reading that PDF.");
+    }
+  }
+
+  // Re-extract the current PDF for the chosen page range without re-selecting
+  // the file. Bounds are validated here; the server also clamps defensively.
+  async function reExtract() {
+    if (!lastFile) return;
+    const from = startPage ? parseInt(startPage, 10) : undefined;
+    const to = endPage ? parseInt(endPage, 10) : undefined;
+    if (from && to && from > to) {
+      setError("Start page can't be after end page.");
+      return;
+    }
+    setError("");
+    setStatus(EXTRACTING);
+    setText("");
+    setProgress({ done: 0, total: 0 });
+    try {
+      const { text: extracted, numPages: pages } = await extractText(
+        lastFile,
+        (done, total) => setProgress({ done, total }),
+        { startPage: from, endPage: to },
+      );
+      setText(extracted);
+      setNumPages(pages);
+      setStatus(READY);
+      if (!extracted) {
+        setError("No readable text was found in those pages.");
+      }
+    } catch (e) {
+      setStatus(READY);
       setError(e.message || "Something went wrong reading that PDF.");
     }
   }
@@ -64,9 +116,17 @@ export default function Home() {
     setStatus(CONVERTING);
     setProgress({ done: 0, total: 0 });
     try {
-      const base64 = await textToMp3Base64(text, (done, total) =>
-        setProgress({ done, total }),
+      let base64 = await textToMp3Base64(
+        text,
+        (done, total) => setProgress({ done, total }),
+        { lang, slow },
       );
+      // Apply the chosen speed (pitch-preserving) so the generated MP3 — the
+      // one both previewed and downloaded — already plays at that rate. A
+      // speed of 1 is a no-op passthrough inside changeSpeed.
+      if (speed !== 1) {
+        base64 = await changeSpeed(base64, speed);
+      }
       setAudioUrl("data:audio/mpeg;base64," + base64);
       setStatus(DONE);
     } catch (e) {
@@ -75,6 +135,8 @@ export default function Home() {
     }
   }
 
+  // The generated MP3 is already at the chosen speed (applied during convert),
+  // so the download is a straight save of the current audio.
   function handleDownload() {
     downloadMp3(audioUrl.replace(/^data:audio\/mpeg;base64,/, ""), fileName);
   }
@@ -87,7 +149,24 @@ export default function Home() {
     setError("");
     setProgress({ done: 0, total: 0 });
     setAudioUrl("");
+    setNumPages(0);
+    setStartPage("");
+    setEndPage("");
+    setLastFile(null);
     if (inputRef.current) inputRef.current.value = "";
+  }
+
+  // In paste mode the user types directly into the textarea; keep the status at
+  // READY so the convert button + text stats show, and clear any prior file.
+  function handlePasteChange(value) {
+    setText(value);
+    setFileName("");
+    setFileSize(0);
+    if (value.trim()) {
+      if (status !== READY) setStatus(READY);
+    } else if (status === READY) {
+      setStatus(IDLE);
+    }
   }
 
   function onDrop(e) {
@@ -103,21 +182,53 @@ export default function Home() {
   return (
     <section className="relative">
       <div className="relative mx-auto max-w-3xl px-6 py-16 sm:py-24">
-        <h1 className="mt-10 text-5xl font-extrabold tracking-tight text-slate-900 sm:text-6xl dark:text-white">
-          Turn any PDF into audio.
-        </h1>
-        <p className="mt-4 max-w-xl text-lg text-slate-500 dark:text-slate-400">
-          Drop a document and get a clean MP3 you can listen to anywhere. No
-          account needed.
-        </p>
+        {/* Hero header hides once a document is in flight (uploaded, ready,
+            converting, or done) so the converter UI gets the focus. */}
+        {status === IDLE && (
+          <>
+            <h1 className="mt-10 text-5xl font-extrabold tracking-tight text-slate-900 sm:text-6xl dark:text-white">
+              Turn any PDF into audio.
+            </h1>
+            <p className="mt-4 max-w-xl text-lg text-slate-500 dark:text-slate-400">
+              Drop a document and get a clean MP3 you can listen to anywhere. No
+              account needed.
+            </p>
+          </>
+        )}
 
-        <div className="mt-10">
+        {/* Mode toggle: upload a PDF or paste text directly */}
+        {status !== DONE && !busy && (
+          <div className="mt-8 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900/40">
+            {[
+              { id: "pdf", label: "Upload PDF" },
+              { id: "paste", label: "Paste text" },
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  setMode(m.id);
+                  reset();
+                }}
+                className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+                  mode === m.id
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4">
           {status === DONE ? (
             /* Result view: finished MP3 with player */
             <ResultCard
               src={audioUrl}
               fileName={fileName}
-              voice={VOICE}
+              voice={voice}
               onDownload={handleDownload}
               onReset={reset}
             />
@@ -135,6 +246,15 @@ export default function Home() {
                 indeterminate={progress.total === 0}
               />
             </>
+          ) : mode === "paste" ? (
+            /* Paste-text input */
+            <textarea
+              value={text}
+              onChange={(e) => handlePasteChange(e.target.value)}
+              rows={8}
+              placeholder="Paste or type any text here — an article, an email, your notes…"
+              className="w-full resize-y rounded-2xl border border-slate-300 bg-white p-5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
           ) : (
             /* Dropzone */
             <button
@@ -185,7 +305,7 @@ export default function Home() {
                 )}
               </span>
               <span className="font-mono text-xs uppercase tracking-wider text-slate-400">
-                PDF up to 50 MB
+                PDF up to 10 MB
               </span>
               <input
                 ref={inputRef}
@@ -215,8 +335,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Editable extracted text */}
-          {status === READY && text && (
+          {/* Editable extracted text (PDF mode — paste mode edits inline) */}
+          {status === READY && mode === "pdf" && text && (
             <div className="mt-6">
               <label
                 htmlFor="pdf-text"
@@ -231,9 +351,113 @@ export default function Home() {
                 rows={8}
                 className="w-full resize-y rounded-xl border border-slate-300 bg-white p-4 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               />
-              <p className="mt-1 text-right text-xs text-slate-400">
-                {text.length.toLocaleString()} characters
+            </div>
+          )}
+
+          {/* Character count + pre-conversion estimate (both modes) */}
+          {status === READY && text && (
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 text-xs text-slate-400">
+              <span>
+                ≈ {formatDuration(estimateConversion(text, slow).seconds)} of
+                audio · {estimateConversion(text, slow).chunks} request
+                {estimateConversion(text, slow).chunks === 1 ? "" : "s"}
+              </span>
+              <span>{text.length.toLocaleString()} characters</span>
+            </div>
+          )}
+
+          {/* Page-range selector (PDF mode, multi-page docs) */}
+          {status === READY && mode === "pdf" && numPages > 1 && (
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+              <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                Pages{" "}
+                <span className="font-normal text-slate-400">
+                  (of {numPages} — leave blank for all)
+                </span>
               </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={numPages}
+                  value={startPage}
+                  onChange={(e) => setStartPage(e.target.value)}
+                  placeholder="1"
+                  className="w-20 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+                <span className="text-slate-400">to</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={numPages}
+                  value={endPage}
+                  onChange={(e) => setEndPage(e.target.value)}
+                  placeholder={String(numPages)}
+                  className="w-20 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={reExtract}
+                  className="ml-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Voice/language + speech-rate controls */}
+          {status === READY && (
+            <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label
+                  htmlFor="lang"
+                  className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                >
+                  Voice / language
+                </label>
+                <select
+                  id="lang"
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:w-44">
+                <label
+                  htmlFor="speed"
+                  className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                >
+                  Speed
+                </label>
+                <select
+                  id="speed"
+                  value={speed}
+                  onChange={(e) => setSpeed(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  {SPEED_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}×{s === 1 ? " (normal)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 pb-2.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={slow}
+                  onChange={(e) => setSlow(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30 dark:border-slate-600 dark:bg-slate-800"
+                />
+                Slower, clearer speech
+              </label>
             </div>
           )}
 
@@ -264,8 +488,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        <FeatureRow />
       </div>
     </section>
   );
@@ -291,6 +513,9 @@ function ResultCard({ src, fileName, voice, onDownload, onReset }) {
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [current, setCurrent] = useState(0);
+  const [rate, setRate] = useState(1);
+
+  const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
   // Rough size estimate from the base64 payload (3 bytes per 4 chars).
   const bytes = Math.floor((src.length - src.indexOf(",") - 1) * 0.75);
@@ -324,6 +549,18 @@ function ResultCard({ src, fileName, voice, onDownload, onReset }) {
       el.pause();
       setPlaying(false);
     }
+  }
+
+  // Set the rate used for both the preview player and the download, keeping
+  // them in sync so the dropdown and the player button never disagree.
+  function setSpeed(next) {
+    setRate(next);
+    const el = audioRef.current;
+    if (el) el.playbackRate = next;
+  }
+
+  function cycleSpeed() {
+    setSpeed(SPEEDS[(SPEEDS.indexOf(rate) + 1) % SPEEDS.length]);
   }
 
   function seek(e) {
@@ -409,6 +646,15 @@ function ResultCard({ src, fileName, voice, onDownload, onReset }) {
         <span className="flex-shrink-0 font-mono text-sm tabular-nums text-slate-400">
           {formatDuration(playing || current ? current : duration)}
         </span>
+
+        <button
+          type="button"
+          onClick={cycleSpeed}
+          aria-label="Playback speed"
+          className="flex-shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 font-mono text-sm font-semibold tabular-nums text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {rate}×
+        </button>
       </div>
 
       {/* Actions */}
@@ -493,33 +739,3 @@ function ProgressBar({ label, pct, indeterminate }) {
   );
 }
 
-const FEATURES = [
-  { icon: Zap, title: "Fast", body: "Text extraction and audio in seconds." },
-  { icon: Pencil, title: "Editable", body: "Fix the text before you convert." },
-  {
-    icon: Accessibility,
-    title: "Accessible",
-    body: "Built for listening on the go.",
-  },
-];
-
-function FeatureRow() {
-  return (
-    <div className="mt-12 grid gap-4 sm:grid-cols-3">
-      {FEATURES.map((f) => (
-        <div
-          key={f.title}
-          className="rounded-xl border border-slate-200 bg-white/60 p-4 dark:border-slate-800 dark:bg-slate-900/60"
-        >
-          <f.icon className="h-7 w-7 text-brand" strokeWidth={1.8} />
-          <div className="mt-2 font-semibold text-slate-900 dark:text-slate-100">
-            {f.title}
-          </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            {f.body}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}

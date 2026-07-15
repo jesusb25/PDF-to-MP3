@@ -12,14 +12,20 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.18.2",
+    "express": "^4.22.2",
     "express-fileupload": "^1.4.0",
+    "express-rate-limit": "^7.5.1",
     "google-tts-api": "^2.0.2",
-    "pdfjs-dist": "^2.8.335"
+    "pdfjs-dist": "^4.10.38"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",
     "dotenv": "^16.3.1",
     "nodemon": "^3.0.1"
+  },
+  "overrides": {
+    "google-tts-api": {
+      "axios": "^1.13.5"
+    }
   }
 }
