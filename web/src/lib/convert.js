@@ -11,15 +11,12 @@ const MAX_TEXT_LENGTH = 1800
 // Languages the server allowlists for TTS. `code` is passed to /base64data;
 // `voice` is the label shown in the result card.
 export const LANGUAGES = [
-  { code: 'en', label: 'English (US)', voice: 'Ava (US)' },
-  { code: 'en-GB', label: 'English (UK)', voice: 'Daniel (UK)' },
-  { code: 'en-AU', label: 'English (AU)', voice: 'Karen (AU)' },
+  { code: 'en', label: 'English', voice: 'English' },
   { code: 'es', label: 'Spanish', voice: 'Spanish' },
   { code: 'fr', label: 'French', voice: 'French' },
   { code: 'de', label: 'German', voice: 'German' },
   { code: 'it', label: 'Italian', voice: 'Italian' },
   { code: 'pt', label: 'Portuguese', voice: 'Portuguese' },
-  { code: 'pt-BR', label: 'Portuguese (BR)', voice: 'Portuguese (BR)' },
   { code: 'nl', label: 'Dutch', voice: 'Dutch' },
   { code: 'pl', label: 'Polish', voice: 'Polish' },
   { code: 'ru', label: 'Russian', voice: 'Russian' },

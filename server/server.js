@@ -88,8 +88,11 @@ const MAX_TTS_TEXT_LENGTH = 2000;
 
 // Languages supported by google-tts-api that we expose in the UI. Requests for
 // anything outside this allowlist fall back to English rather than erroring.
+// google-tts-api validates against Google Translate's language list, which has
+// no regional variants (en-GB, en-AU, pt-BR all throw "lang ... might not
+// exist"), so only the generic base codes are allowed here.
 const SUPPORTED_LANGS = new Set([
-  'en', 'en-GB', 'en-AU', 'es', 'fr', 'de', 'it', 'pt', 'pt-BR', 'nl',
+  'en', 'es', 'fr', 'de', 'it', 'pt', 'nl',
   'pl', 'ru', 'sv', 'tr', 'uk', 'hi', 'ja', 'ko', 'zh-CN', 'zh-TW', 'ar',
 ]);
 
